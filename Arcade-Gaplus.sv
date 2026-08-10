@@ -33,7 +33,7 @@ assign VIDEO_ARX = (!ar) ? ((status[2] ) ? 8'd4 : 8'd3) : (ar - 1'd1);
 assign VIDEO_ARY = (!ar) ? ((status[2] ) ? 8'd3 : 8'd4) : 12'd0;
 
 
-`include "build_id.v" 
+`include "build_id.v"
 localparam CONF_STR = {
 	"A.GAPLUS;;",
 	"H0OJK,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
@@ -45,7 +45,6 @@ localparam CONF_STR = {
 	"ODF,Bonus Life,M0,M1,M2,M3,M4,M5,M6,M7;",
 	"OG,Round Advance,Off,On;",
 	"OH,Demo Sound,On,Off;",
-	//"OJ,Cabinet,Upright,Cocktail;",
 	"OL,Flip,Off,On;",
 	"-;",
 	"P1,Pause options;",
@@ -59,8 +58,6 @@ localparam CONF_STR = {
 };
 
 
-////////////////////   CLOCKS   ///////////////////
-
 wire clk_48M;
 wire clk_hdmi = clk_48M;
 wire clk_sys = clk_48M;
@@ -72,7 +69,6 @@ pll pll
 	.outclk_0(clk_48M)
 );
 
-///////////////////////////////////////////////////
 
 wire [31:0] status;
 wire  [1:0] buttons;
@@ -114,10 +110,8 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 );
 
 
-
-//wire bCabinet  = status[19];
 wire bFlip    	= status[21];
-wire bCabinet  = 1'b0;	// (upright only)
+wire bCabinet  = 1'b0;
 
 wire m_up2     = joystk2[3];
 wire m_down2   = joystk2[2];
@@ -140,7 +134,6 @@ wire m_pause_btn = joystk1[8] | joystk2[8];
 
 wire no_rotate = status[2] | direct_video;
 
-///////////////////////////////////////////////////
 
 wire hblank, vblank;
 wire ce_vid;
@@ -188,10 +181,8 @@ assign ce_vid = PCLK;
 wire [15:0] AOUT;
 assign AUDIO_L = AOUT;
 assign AUDIO_R = AUDIO_L;
-assign AUDIO_S = 0; // unsigned PCM
+assign AUDIO_S = 0;
 
-
-///////////////////////////////////////////////////
 
 wire rst_src = RESET | status[0] | buttons[1] | ioctl_download;
 
@@ -227,15 +218,15 @@ always @(posedge clk_sys or posedge iRST) begin
     end
 end
 
-wire  [1:0] COIA = 2'b00;				// 1coin/1credit
-wire  [1:0] COIB = 2'b00;				// 1coin/1credit
+wire  [1:0] COIA = 2'b00;
+wire  [1:0] COIB = 2'b00;
 
 wire	[2:0]	DIFF = status[10:8];
 wire  [1:0] LIFE = status[12:11];
-wire  [2:0] EXTD = status[15:13]; 
+wire  [2:0] EXTD = status[15:13];
 wire			ADVN = status[16];
 wire			DEMO = status[17];
-wire        SERV = status[18];		// Service-SW
+wire        SERV = status[18];
 wire			CABI = bCabinet;
 
 wire  [7:0] DSW0 = {LIFE,COIA,DEMO,1'b0,COIB};
@@ -251,7 +242,7 @@ wire pause_req  = osd_pause | pause_latch;
 
 wire  [7:0] oSND;
 
-FPGA_GAPLUS GameCore ( 
+FPGA_GAPLUS GameCore (
 	.RESET(iRST),.MCLK(clk_48M),
 	.PH(HPOS),.PV(VPOS),.PCLK(PCLK),.POUT(POUT),
 	.SOUT(oSND),
@@ -260,7 +251,7 @@ FPGA_GAPLUS GameCore (
 
 	.INP0(INP0),.INP1(INP1),.INP2(INP2),
 	.DSW0(DSW0),.DSW1(DSW1),.DSW2(DSW2),
-	
+
 	.ROMCL(clk_sys),.ROMAD(ioctl_addr),.ROMDT(ioctl_dout),.ROMEN(ioctl_wr)
 );
 
@@ -286,28 +277,37 @@ module HVGEN
 reg [8:0] hcnt = 0;
 reg [8:0] vcnt = 0;
 
+reg hblk_i = 1;
+reg vblk_i = 1;
+reg hsyn_i = 1;
+reg vsyn_i = 1;
+
 assign HPOS = hcnt;
 assign VPOS = vcnt;
 
 always @(posedge PCLK) begin
 	case (hcnt)
-		  0: begin HBLK <= 0; hcnt <= hcnt+1; end
-		288: begin HBLK <= 1; hcnt <= hcnt+1; end
-		311: begin HSYN <= 0; hcnt <= hcnt+1; end
-		342: begin HSYN <= 1; hcnt <= 471;    end
+		  0: begin hblk_i <= 0; hcnt <= hcnt+1; end
+		288: begin hblk_i <= 1; hcnt <= hcnt+1; end
+		311: begin hsyn_i <= 0; hcnt <= hcnt+1; end
+		342: begin hsyn_i <= 1; hcnt <= 471;    end
 		511: begin hcnt <= 0;
 			case (vcnt)
-				223: begin VBLK <= 1; vcnt <= vcnt+1; end
-				235: begin VSYN <= 0; vcnt <= vcnt+1; end
-				242: begin VSYN <= 1; vcnt <= 491;	  end
-				511: begin VBLK <= 0; vcnt <= 0;		  end
+				223: begin vblk_i <= 1; vcnt <= vcnt+1; end
+				235: begin vsyn_i <= 0; vcnt <= vcnt+1; end
+				242: begin vsyn_i <= 1; vcnt <= 491;	  end
+				511: begin vblk_i <= 0; vcnt <= 0;		  end
 				default: vcnt <= vcnt+1;
 			endcase
 		end
 		default: hcnt <= hcnt+1;
 	endcase
-	oRGB <= (HBLK|VBLK) ? 12'h0 : iRGB;
+	oRGB <= (hblk_i|vblk_i) ? 12'h0 : iRGB;
+
+	HBLK <= hblk_i;
+	VBLK <= vblk_i;
+	HSYN <= hsyn_i;
+	VSYN <= vsyn_i;
 end
 
 endmodule
-
