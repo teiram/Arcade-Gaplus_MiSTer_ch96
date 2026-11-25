@@ -6,7 +6,7 @@
 
 module emu
 (
-	`include "sys/emu_ports.vh"
+	`include "template/sys/emu_ports.vh"
 );
 
 assign {UART_RTS, UART_TXD, UART_DTR} = 0;
